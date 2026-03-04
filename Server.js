@@ -1,13 +1,12 @@
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
-const path = require('path');
-const url = require('url');
+const nodePath = require('path');
+const urlModule = require('url');
 
 const PORT = 3000;
 
 const server = http.createServer((req, res) => {
-  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -20,7 +19,7 @@ const server = http.createServer((req, res) => {
 
   // Serve index.html
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-    const file = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+    const file = fs.readFileSync(nodePath.join(__dirname, 'index.html'), 'utf8');
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(file);
     return;
@@ -44,11 +43,14 @@ const server = http.createServer((req, res) => {
       }
 
       const payloadStr = JSON.stringify(payload);
-      const parsedUrl = url.parse(webhookUrl);
+      const parsedUrl = urlModule.parse(webhookUrl);
+
+      // ?wait=true makes Discord return proper status codes
+      const discordPath = parsedUrl.path + (parsedUrl.search ? '&wait=true' : '?wait=true');
 
       const options = {
         hostname: parsedUrl.hostname,
-        path: parsedUrl.path,
+        path: discordPath,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -60,6 +62,7 @@ const server = http.createServer((req, res) => {
         let data = '';
         proxyRes.on('data', chunk => data += chunk);
         proxyRes.on('end', () => {
+          console.log(`Discord: ${proxyRes.statusCode} — ${data.slice(0, 200)}`);
           res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
           res.end(data || '{}');
         });
